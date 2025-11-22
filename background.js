@@ -2,7 +2,7 @@ chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({
       id: "slash-read",
-      title: "Gemini Rhythm: リスペリング厳格版",
+      title: "Gemini Rhythm: Gemini-slash-reader",
       contexts: ["selection"]
     });
   });
