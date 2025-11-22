@@ -2,7 +2,7 @@ chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({
       id: "slash-read",
-      title: "Gemini Rhythm: Debug Mode",
+      title: "Gemini Rhythm: リスペリング厳格版",
       contexts: ["selection"]
     });
   });
@@ -12,6 +12,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === "slash-read" && info.selectionText) {
     console.log("🚀 [1] 右クリックメニューが押されました");
     
+    // 通常のメッセージ送信（デバッグ用ではないのでシンプルに）
     chrome.tabs.sendMessage(tab.id, { action: "START_LOADING" });
     
     try {
@@ -47,7 +48,7 @@ async function callGeminiAPI(text) {
           properties: {
             display_text: { type: "STRING" },
             translation: { type: "STRING" },
-            respelling: { type: "STRING" },
+            respelling: { type: "STRING" }, // ここを厳格に定義します
             split_point: { type: "BOOLEAN" },
             category: { type: "STRING", enum: ["SUBJECT", "ACTION", "IMAGE"] }
           },
@@ -57,12 +58,45 @@ async function callGeminiAPI(text) {
     }
   };
 
+  // ★修正ポイント: リスペリングのルールをガチガチに固める
   const prompt = `
-  あなたは英語のプロです。S/V/Oに分解してください。
-  【ルール】
-  1. 原文スペル維持。
-  2. 最強アクセント母音の直前にアスタリスク(*)。機能語は除外。
-  3. JSONのみを返してください。
+  あなたは英語の発音と構造の専門家です。
+  提供された英文を、S/V/Oの原則に基づいて自然なリズムで区切り、各チャンクの情報を分析してください。
+
+  【重要：respelling (発音表記) のルール】
+  AIはIPA(国際音声記号)を使いがちですが、今回は**絶対にIPAを使用してはいけません。**
+  代わりに、英語ネイティブが使う「直感的な綴り直し (Phonetic Respelling)」を厳守してください。
+
+  **▼ 禁止事項 (NG例)**
+  - [NG] /ʃʊd əv toʊld/ (IPA記号を使う)
+  - [NG] shood-uhv-tohld (すべて小文字)
+  - [NG] ʃʊd-əv-TOHLD (IPAと混在させる)
+
+  **▼ 遵守事項 (OK例)**
+  1. **一般的なアルファベットのみ**を使用する。
+  2. 最も強く発音される音節をすべて**大文字**にする。
+  3. 音節の区切りは**ハイフン(-)**で繋ぐ。
+  4. 曖昧母音(シュワ音)は "uh" や "ih" など、最も近い綴りで表現する。
+
+  **▼ 変換サンプルの徹底**
+  - "should have told" -> **"shood-uv-TOLD"**
+  - "network administrator" -> **"NET-work ad-MIN-i-stray-ter"**
+  - "deploy" -> **"dih-PLOY"**
+  - "I need to catch up" -> **"eye NEED too KATCH up"**
+
+  ---
+  【その他のルール】
+  [display_text]
+  - 原文スペル維持。
+  - 最強アクセント母音の直前にアスタリスク(*)。機能語は除外。
+
+  [category] (SVO原則)
+  - SUBJECT (緑): 動作主 (I, You, etc.)。文頭副詞は含めない。
+  - ACTION (赤): 動詞、助動詞、不定詞(to+V)。
+  - IMAGE (青): 目的語、補語、前置詞句。前置詞の前で区切る。
+
+  [translation]
+  - 自然な日本語訳。
 
   対象テキスト: "${text}"
   `;
@@ -85,9 +119,9 @@ async function callGeminiAPI(text) {
   const json = await response.json();
   let rawText = json.candidates[0].content.parts[0].text;
 
-  console.log("🚀 [4] APIからデータ受信完了。生データ:", rawText.substring(0, 100) + "..."); // 長いので最初の100文字だけ表示
+  console.log("🚀 [4] APIからデータ受信完了。生データ(先頭100文字):", rawText.substring(0, 100) + "...");
 
-  // ★念のためMarkdown記法 (```json ... ```) を削除するクリーニング処理
+  // Markdownクリーニング
   rawText = rawText.replace(/```json/g, "").replace(/```/g, "").trim();
 
   try {
