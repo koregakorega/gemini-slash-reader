@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "Gemini Rhythm Reader",
+  "version": "1.0",
+  "description": "英語のリズムと発音(IPA)を可視化する学習ツール",
+  "permissions": ["storage", "contextMenus", "activeTab"],
+  "host_permissions": ["https://generativelanguage.googleapis.com/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "icons": {
+    "16": "icon.png", 
+    "48": "icon.png",
+    "128": "icon.png"
+  }
+}
