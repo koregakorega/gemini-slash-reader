@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Gemini Rhythm Reader",
-  "version": "1.0",
-  "description": "英語のリズムと発音(IPA)を可視化する学習ツール",
+  "version": "3.0",
+  "description": "英語のリズムと発音を可視化する学習ツール",
   "permissions": ["storage", "contextMenus", "activeTab"],
   "host_permissions": ["https://generativelanguage.googleapis.com/*"],
   "background": {

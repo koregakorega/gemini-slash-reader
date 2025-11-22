@@ -1,30 +1,41 @@
-// background.js
-
 chrome.runtime.onInstalled.addListener(() => {
-  chrome.contextMenus.create({
-    id: "slash-read",
-    title: "Gemini Rhythm: リスペリングで音を可視化",
-    contexts: ["selection"]
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create({
+      id: "slash-read",
+      title: "Gemini Rhythm: Debug Mode",
+      contexts: ["selection"]
+    });
   });
 });
 
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === "slash-read" && info.selectionText) {
+    console.log("🚀 [1] 右クリックメニューが押されました");
+    
     chrome.tabs.sendMessage(tab.id, { action: "START_LOADING" });
+    
     try {
+      console.log("🚀 [2] Gemini API呼び出し開始...");
       const result = await callGeminiAPI(info.selectionText);
+      
+      console.log("🚀 [5] 解析成功！Content Scriptへ送信します");
       chrome.tabs.sendMessage(tab.id, { action: "APPLY_SLASHES", data: result });
+      
     } catch (error) {
+      console.error("🔥 [ERROR] エラーが発生しました:", error);
       chrome.tabs.sendMessage(tab.id, { action: "ERROR", message: error.message });
     }
   }
 });
 
 async function callGeminiAPI(text) {
-  const storage = await chrome.storage.local.get(['geminiApiKey']);
+  const storage = await chrome.storage.local.get(['geminiApiKey', 'geminiModel']);
   if (!storage.geminiApiKey) throw new Error("APIキー未設定");
 
-  const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${storage.geminiApiKey}`;
+  const modelName = storage.geminiModel || "gemini-2.0-flash";
+  const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${storage.geminiApiKey}`;
+
+  console.log(`🚀 [3] APIリクエスト送信中... モデル: ${modelName}, 文字数: ${text.length}`);
 
   const schema = {
     type: "OBJECT",
@@ -34,43 +45,24 @@ async function callGeminiAPI(text) {
         items: {
           type: "OBJECT",
           properties: {
-            original_text: { type: "STRING" },
+            display_text: { type: "STRING" },
             translation: { type: "STRING" },
             respelling: { type: "STRING" },
             split_point: { type: "BOOLEAN" },
             category: { type: "STRING", enum: ["SUBJECT", "ACTION", "IMAGE"] }
           },
-          required: ["original_text", "translation", "respelling", "split_point", "category"]
+          required: ["display_text", "translation", "respelling", "split_point", "category"]
         }
       }
     }
   };
 
   const prompt = `
-  あなたは「英語の音とリズム」を教えるプロコーチです。
-  文法単位ではなく「ネイティブが一息で話す音の塊」で区切り、その**「実際の音（Connected Speech）」をリスペリングで表記**してください。
-
-  【最重要：リスペリング(respelling)作成ルール】
-  IPA記号は使わず、**誰でも読めるアルファベット表記**にすること。
-  実際の会話で起こる「連結・脱落・弱形」を反映すること。
-  
-  1. **山（ストレス）**: 最も強く読まれる音節を**全部大文字**にする。
-  2. **谷（リダクション）**: 弱く読まれる音は小文字にし、ハイフン(-)で繋ぐ。
-
-  例:
-  - "should have told" -> "shood-uv-TOLD" (haveが uv に弱化)
-  - "at the station" -> "ut-thee-STAY-shun"
-  - "woke up early" -> "WOKE-up-ER-lee" (リエゾンさせる)
-  - "want to go" -> "WAN-nuh-GOH" (wannaにする)
-
-  【カテゴリ定義 (GLUEルール)】
-  1. "SUBJECT" (緑): 主語。
-  2. "ACTION" (赤): 動作の核心。助動詞・否定・to不定詞・句動詞は**絶対に分割しない**。
-  3. "IMAGE" (青): 目的語、前置詞句。前置詞単独で切らない。
-
-  【翻訳】
-  - translation: 自然な日本語訳
-  - original_text: 原文（後ろのスペース保持）
+  あなたは英語のプロです。S/V/Oに分解してください。
+  【ルール】
+  1. 原文スペル維持。
+  2. 最強アクセント母音の直前にアスタリスク(*)。機能語は除外。
+  3. JSONのみを返してください。
 
   対象テキスト: "${text}"
   `;
@@ -85,10 +77,23 @@ async function callGeminiAPI(text) {
   });
 
   if (!response.ok) {
-    const txt = await response.text();
-    throw new Error(`Error ${response.status}: ${txt}`);
+    const errorText = await response.text();
+    console.error("🔥 APIレスポンスエラー:", response.status, errorText);
+    throw new Error(`API Error ${response.status}: ${errorText}`);
   }
   
   const json = await response.json();
-  return JSON.parse(json.candidates[0].content.parts[0].text);
+  let rawText = json.candidates[0].content.parts[0].text;
+
+  console.log("🚀 [4] APIからデータ受信完了。生データ:", rawText.substring(0, 100) + "..."); // 長いので最初の100文字だけ表示
+
+  // ★念のためMarkdown記法 (```json ... ```) を削除するクリーニング処理
+  rawText = rawText.replace(/```json/g, "").replace(/```/g, "").trim();
+
+  try {
+    return JSON.parse(rawText);
+  } catch (e) {
+    console.error("🔥 JSONパースエラー発生！受信したテキスト:\n", rawText);
+    throw new Error("AIの返答が壊れています(JSON Parse Error)");
+  }
 }
