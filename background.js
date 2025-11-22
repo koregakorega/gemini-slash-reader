@@ -1,7 +1,9 @@
+// background.js
+
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
     id: "slash-read",
-    title: "Gemini Rhythm: IPAで音を可視化",
+    title: "Gemini Rhythm: リスペリングで音を可視化",
     contexts: ["selection"]
   });
 });
@@ -22,7 +24,6 @@ async function callGeminiAPI(text) {
   const storage = await chrome.storage.local.get(['geminiApiKey']);
   if (!storage.geminiApiKey) throw new Error("APIキー未設定");
 
-  // 最新モデルを使用
   const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${storage.geminiApiKey}`;
 
   const schema = {
@@ -46,20 +47,24 @@ async function callGeminiAPI(text) {
   };
 
   const prompt = `
-  あなたは英語音声学のプロです。
-  文法単位ではなく「ネイティブが一息で話す音の塊（センス・グループ）」で区切り、その**「実際の音声（Connected Speech）」をIPAで表記**してください。
+  あなたは「英語の音とリズム」を教えるプロコーチです。
+  文法単位ではなく「ネイティブが一息で話す音の塊」で区切り、その**「実際の音（Connected Speech）」をリスペリングで表記**してください。
 
-  【最重要：IPA生成ルール】
-  辞書にある単語ごとの発音ではなく、**実際に会話で話される時の音（連結・脱落・弱形）**を反映したIPAを出力すること。
-  アクセント記号（ˈ）は、そのチャンク内で最も強く読まれる箇所につけること。
+  【最重要：リスペリング(respelling)作成ルール】
+  IPA記号は使わず、**誰でも読めるアルファベット表記**にすること。
+  実際の会話で起こる「連結・脱落・弱形」を反映すること。
+  
+  1. **山（ストレス）**: 最も強く読まれる音節を**全部大文字**にする。
+  2. **谷（リダクション）**: 弱く読まれる音は小文字にし、ハイフン(-)で繋ぐ。
 
   例:
-  - "should have told" -> /ʃʊdəvˈtoʊld/ (haveが弱化し、toldに強勢)
-  - "at the station" -> /ətðəˈsteɪʃən/ (at the が弱く連結)
-  - "woke up early" -> /woʊkʌˈpɜːrli/ (upとearlyがリエゾン)
+  - "should have told" -> "shood-uv-TOLD" (haveが uv に弱化)
+  - "at the station" -> "ut-thee-STAY-shun"
+  - "woke up early" -> "WOKE-up-ER-lee" (リエゾンさせる)
+  - "want to go" -> "WAN-nuh-GOH" (wannaにする)
 
   【カテゴリ定義 (GLUEルール)】
-  1. "SUBJECT" (緑): 主語。長い修飾語も含める。
+  1. "SUBJECT" (緑): 主語。
   2. "ACTION" (赤): 動作の核心。助動詞・否定・to不定詞・句動詞は**絶対に分割しない**。
   3. "IMAGE" (青): 目的語、前置詞句。前置詞単独で切らない。
 

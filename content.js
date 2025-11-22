@@ -1,5 +1,10 @@
+// content.js
+
 const style = document.createElement('style');
 style.textContent = `
+  /* Atkinson Hyperlegibleフォントの読み込み */
+  @import url('https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+
   .gemini-wrapper { line-height: 1.7; font-family: "Segoe UI", sans-serif; }
   .gemini-slash { color: #ddd; margin: 0 4px; font-weight: 300; font-size: 0.9em; }
 
@@ -39,13 +44,14 @@ style.textContent = `
     line-height: 1.4;
   }
   
-  /* IPA用のスタイル設定 */
-  .gemini-ipa {
+  /* リスペリング用のスタイル（フォントはAtkinsonのまま） */
+  .gemini-respell {
     display: block;
     color: #ffd700;   /* 黄色文字 */
-    font-family: "Arial", "Lucida Sans Unicode", sans-serif; 
+    /* Atkinsonフォントを使用 */
+    font-family: "Atkinson Hyperlegible", "Arial", sans-serif; 
     font-size: 1.2em; 
-    font-weight: normal;
+    font-weight: 400;
     margin-top: 3px;
     letter-spacing: 0.5px;
   }
@@ -92,9 +98,10 @@ function applySlashes(segments) {
     }
 
     span.addEventListener('mouseenter', (e) => {
+      // respellクラスを使用
       tooltipElement.innerHTML = `
         <div>${seg.translation}</div>
-        <div class="gemini-ipa">${seg.respelling}</div>
+        <div class="gemini-respell">${seg.respelling}</div>
       `;
       
       if(seg.category === "SUBJECT") tooltipElement.style.backgroundColor = "rgba(46, 125, 50, 0.95)";
